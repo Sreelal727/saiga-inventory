@@ -194,17 +194,17 @@ export const dashboardStats = query({
       0,
     );
 
-    const today = new Date();
-    const in7Days = new Date(today.getTime() + 7 * 86400000)
+    const todayStr = new Date().toISOString().split("T")[0];
+    const in7Days = new Date(Date.now() + 7 * 86400000)
       .toISOString()
       .split("T")[0];
-    const batches = await ctx.db.query("stock_batches").collect();
-    const expiringBatches = batches.filter(
-      (b) =>
-        b.status === "active" &&
-        b.expiry_date &&
-        b.expiry_date <= in7Days,
-    );
+    const expiringBatches = await ctx.db
+      .query("stock_batches")
+      .withIndex("by_expiry", (q) =>
+        q.gte("expiry_date", todayStr).lte("expiry_date", in7Days),
+      )
+      .filter((q) => q.eq(q.field("status"), "active"))
+      .collect();
 
     return { total, lowStock, outOfStock, totalValue, expiringCount: expiringBatches.length };
   },

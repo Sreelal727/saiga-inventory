@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import Link from "next/link";
@@ -18,8 +18,13 @@ export default function MovementsPage() {
 
   const items = useQuery(api.items.list, {});
 
+  const itemById = useMemo(
+    () => new Map(items?.map((i) => [i._id, i]) ?? []),
+    [items],
+  );
+
   function itemName(id: string) {
-    return items?.find((i) => i._id === id)?.name ?? "—";
+    return itemById.get(id)?.name ?? "—";
   }
 
   return (

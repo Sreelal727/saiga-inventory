@@ -1,15 +1,17 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
+function validateColor(color: string | undefined) {
+  if (color && !/^#[0-9a-fA-F]{3,8}$/.test(color)) {
+    throw new Error("color must be a valid hex value (e.g. #3b82f6)");
+  }
+}
+
 export const list = query({
   args: { includeInactive: v.optional(v.boolean()) },
   handler: async (ctx, args) => {
-    const cats = await ctx.db
-      .query("inventory_categories")
-      .collect();
-    return args.includeInactive
-      ? cats
-      : cats.filter((c) => c.is_active);
+    const cats = await ctx.db.query("inventory_categories").collect();
+    return args.includeInactive ? cats : cats.filter((c) => c.is_active);
   },
 });
 
@@ -26,6 +28,7 @@ export const create = mutation({
     description: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    validateColor(args.color);
     const slug = args.name.toLowerCase().replace(/\s+/g, "-");
     return ctx.db.insert("inventory_categories", {
       name: args.name,
@@ -47,6 +50,7 @@ export const update = mutation({
     is_active: v.optional(v.boolean()),
   },
   handler: async (ctx, { id, ...patch }) => {
+    validateColor(patch.color);
     const updates: Record<string, unknown> = { ...patch };
     if (patch.name) updates.slug = patch.name.toLowerCase().replace(/\s+/g, "-");
     await ctx.db.patch(id, updates);

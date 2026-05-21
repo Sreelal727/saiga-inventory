@@ -63,6 +63,7 @@ export const record = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    if (args.qty <= 0) throw new Error("qty must be positive");
     const item = await ctx.db.get(args.item_id);
     if (!item) throw new Error("Item not found");
 
@@ -109,12 +110,13 @@ export const stockAgeing = query({
     const batches = await ctx.db
       .query("stock_batches")
       .withIndex("by_received")
+      .filter((q) => q.eq(q.field("status"), "active"))
       .collect();
 
     const now = Date.now();
     const buckets = { "0-30": 0, "31-60": 0, "61-90": 0, "90+": 0 };
     for (const b of batches) {
-      if (b.status !== "active" || b.qty_remaining === 0) continue;
+      if (b.qty_remaining === 0) continue;
       const days = Math.floor((now - b.received_at) / 86400000);
       if (days <= 30) buckets["0-30"] += b.qty_remaining;
       else if (days <= 60) buckets["31-60"] += b.qty_remaining;
@@ -136,13 +138,12 @@ export const movementTrend = query({
     const since = Date.now() - days * 86400000;
     const movements = await ctx.db
       .query("stock_movements")
-      .withIndex("by_occurred")
+      .withIndex("by_occurred", (q) => q.gte("occurred_at", since))
       .order("asc")
       .collect();
 
     const byDay: Record<string, { in: number; out: number }> = {};
     for (const m of movements) {
-      if (m.occurred_at < since) continue;
       const day = new Date(m.occurred_at).toISOString().split("T")[0];
       if (!byDay[day]) byDay[day] = { in: 0, out: 0 };
       if (m.direction === "in") byDay[day].in += m.qty;

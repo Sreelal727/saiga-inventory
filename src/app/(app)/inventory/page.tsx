@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import Link from "next/link";
@@ -26,10 +26,19 @@ export default function InventoryPage() {
   const categories = useQuery(api.categories.list, {});
   const removeItem = useMutation(api.items.remove);
 
+  const catById = useMemo(
+    () => new Map(categories?.map((c) => [c._id, c]) ?? []),
+    [categories],
+  );
+
   async function handleDelete(id: Id<"inventory_items">, name: string) {
     if (!confirm(`Archive "${name}"?`)) return;
-    await removeItem({ id });
-    toast.success(`"${name}" archived`);
+    try {
+      await removeItem({ id });
+      toast.success(`"${name}" archived`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to archive item");
+    }
   }
 
   return (
@@ -100,7 +109,7 @@ export default function InventoryPage() {
             )}
             {items?.map((item) => {
               const isLow = item.reorder_level !== undefined && item.qty_on_hand <= item.reorder_level;
-              const cat = categories?.find((c) => c._id === item.category_id);
+              const cat = catById.get(item.category_id);
               return (
                 <tr key={item._id} className="border-t hover:bg-muted/20 transition-colors">
                   <td className="px-4 py-3">

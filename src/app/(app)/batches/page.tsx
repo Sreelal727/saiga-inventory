@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
@@ -8,12 +8,14 @@ import { formatDate, daysUntil } from "@/lib/utils";
 import { toast } from "sonner";
 import { Plus, Clock, AlertTriangle } from "lucide-react";
 
+type BatchStatus = "active" | "depleted" | "expired" | "written_off";
+
 export default function BatchesPage() {
   const [showBatchForm, setShowBatchForm] = useState(false);
   const [batchEntries, setBatchEntries] = useState([
-    { item_id: "", batch_no: "", qty_received: "", unit_cost: "", manufacture_date: "", expiry_date: "", notes: "" },
+    { id: crypto.randomUUID(), item_id: "", batch_no: "", qty_received: "", unit_cost: "", manufacture_date: "", expiry_date: "", notes: "" },
   ]);
-  const [statusFilter, setStatusFilter] = useState("active");
+  const [statusFilter, setStatusFilter] = useState<BatchStatus | "">("active");
   const [submitting, setSubmitting] = useState(false);
 
   const batches = useQuery(api.batches.listAll, { status: statusFilter || undefined });
@@ -24,7 +26,7 @@ export default function BatchesPage() {
   function addRow() {
     setBatchEntries((rows) => [
       ...rows,
-      { item_id: "", batch_no: "", qty_received: "", unit_cost: "", manufacture_date: "", expiry_date: "", notes: "" },
+      { id: crypto.randomUUID(), item_id: "", batch_no: "", qty_received: "", unit_cost: "", manufacture_date: "", expiry_date: "", notes: "" },
     ]);
   }
 
@@ -57,14 +59,28 @@ export default function BatchesPage() {
       setShowBatchForm(false);
       setBatchEntries([{ item_id: "", batch_no: "", qty_received: "", unit_cost: "", manufacture_date: "", expiry_date: "", notes: "" }]);
     } catch (err) {
-      toast.error(String(err));
+      toast.error(err instanceof Error ? err.message : "Failed to add batches");
     } finally {
       setSubmitting(false);
     }
   }
 
+  const itemById = useMemo(
+    () => new Map(items?.map((i) => [i._id, i]) ?? []),
+    [items],
+  );
+
   function itemName(id: string) {
-    return items?.find((i) => i._id === id)?.name ?? id;
+    return itemById.get(id)?.name ?? id;
+  }
+
+  async function handleMarkExpired() {
+    try {
+      const n = await markExpired({});
+      toast.success(`Marked ${n} expired`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to check expiry");
+    }
   }
 
   return (
@@ -83,7 +99,7 @@ export default function BatchesPage() {
         </select>
         <div className="flex-1" />
         <button
-          onClick={async () => { const n = await markExpired({}); toast.success(`Marked ${n} expired`); }}
+          onClick={handleMarkExpired}
           className="rounded-lg border px-3 py-1.5 text-sm hover:bg-accent h-9"
         >
           Check Expiry
@@ -110,7 +126,7 @@ export default function BatchesPage() {
             </thead>
             <tbody>
               {batchEntries.map((row, i) => (
-                <tr key={i} className="border-t">
+                <tr key={row.id} className="border-t">
                   <td className="px-1 py-1">
                     <select className="h-8 rounded border bg-background px-2 text-xs w-40 outline-none" value={row.item_id}
                       onChange={(e) => updateRow(i, "item_id", e.target.value)}>

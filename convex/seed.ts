@@ -1,4 +1,5 @@
 import { mutation } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 import { v } from "convex/values";
 
 export const run = mutation({
@@ -7,7 +8,7 @@ export const run = mutation({
     const existing = await ctx.db.query("inventory_items").first();
     if (existing && !force) return { skipped: true };
 
-    const catIds: Record<string, string> = {};
+    const catIds: Record<string, Id<"inventory_categories">> = {};
 
     const cats = [
       { name: "Beverages", color: "#3b82f6" },
@@ -29,14 +30,14 @@ export const run = mutation({
     await ctx.db.insert("inventory_categories", {
       name: "Coffee",
       slug: "coffee",
-      parent_id: catIds["Beverages"] as never,
+      parent_id: catIds["Beverages"],
       color: "#92400e",
       is_active: true,
     });
     await ctx.db.insert("inventory_categories", {
       name: "Tea",
       slug: "tea",
-      parent_id: catIds["Beverages"] as never,
+      parent_id: catIds["Beverages"],
       color: "#065f46",
       is_active: true,
     });
@@ -62,7 +63,7 @@ export const run = mutation({
         sku,
         name: item.name,
         name_lower: item.name.toLowerCase(),
-        category_id: catIds[item.category] as never,
+        category_id: catIds[item.category],
         item_type: "trading",
         unit: item.unit,
         cost_price: item.cost,
@@ -103,10 +104,9 @@ export const run = mutation({
         notes: "Opening stock (seed)",
       });
     }
-    await ctx.db.patch(
-      (await ctx.db.query("counters").withIndex("by_name", (q) => q.eq("name", "sku")).first())!._id,
-      { value: skuCounter },
-    );
+    const skuDoc = await ctx.db.query("counters").withIndex("by_name", (q) => q.eq("name", "sku")).first();
+    if (!skuDoc) throw new Error("SKU counter not found");
+    await ctx.db.patch(skuDoc._id, { value: skuCounter });
     return { seeded: items.length };
   },
 });

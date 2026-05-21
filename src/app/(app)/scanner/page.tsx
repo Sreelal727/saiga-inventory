@@ -18,6 +18,9 @@ export default function ScannerPage() {
   const [scanned, setScanned] = useState<string | null>(null);
   const [manualSku, setManualSku] = useState("");
   const [lookupSku, setLookupSku] = useState("");
+  const [scanError, setScanError] = useState<string | null>(null);
+
+  const MAX_SKU_LEN = 100;
 
   const item = useQuery(
     api.items.getBySku,
@@ -25,10 +28,11 @@ export default function ScannerPage() {
   );
 
   function handleScan(result: Array<{ rawValue: string }>) {
-    const val = result[0]?.rawValue;
+    const val = result[0]?.rawValue?.trim().slice(0, MAX_SKU_LEN);
     if (val && val !== scanned) {
       setScanned(val);
       setLookupSku(val);
+      setScanError(null);
     }
   }
 
@@ -49,11 +53,16 @@ export default function ScannerPage() {
         <div className="overflow-hidden rounded-xl">
           <QrScanner
             onScan={handleScan}
-            onError={(err) => console.error(err)}
+            onError={(err) => setScanError(err instanceof Error ? err.message : "Camera error")}
             constraints={{ facingMode: "environment" }}
             styles={{ container: { borderRadius: "0.75rem", overflow: "hidden" } }}
           />
         </div>
+        {scanError && (
+          <div className="rounded-lg bg-destructive/10 px-4 py-2 text-sm text-destructive">
+            {scanError}
+          </div>
+        )}
         {scanned && (
           <div className="rounded-lg bg-primary/10 border border-primary/20 px-4 py-2 text-sm text-primary font-mono">
             Scanned: {scanned}

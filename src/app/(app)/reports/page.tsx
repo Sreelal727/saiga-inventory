@@ -4,13 +4,13 @@ import { useState, useRef } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
-import { exportItemsToCsv, exportMovementsToCsv, parseItemsCsv, downloadCsv } from "@/lib/csv";
+import { exportItemsToCsv, exportMovementsToCsv, parseItemsCsv, downloadCsv, type CsvItemRow } from "@/lib/csv";
 import { toast } from "sonner";
 import { Download, Upload, FileText, Table, AlertTriangle } from "lucide-react";
 
 export default function ReportsPage() {
   const [importing, setImporting] = useState(false);
-  const [importPreview, setImportPreview] = useState<Array<Record<string, string>>>([]);
+  const [importPreview, setImportPreview] = useState<CsvItemRow[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const items = useQuery(api.items.list, {});
@@ -20,10 +20,11 @@ export default function ReportsPage() {
 
   function handleExportItems() {
     if (!items) return;
+    const catById = new Map(categories?.map((c) => [c._id, c]) ?? []);
     const csv = exportItemsToCsv(
       items.map((i) => ({
         ...i,
-        categoryName: categories?.find((c) => c._id === i.category_id)?.name,
+        categoryName: catById.get(i.category_id)?.name,
       })),
     );
     downloadCsv(csv, `inventory-${new Date().toISOString().split("T")[0]}.csv`);
@@ -32,10 +33,11 @@ export default function ReportsPage() {
 
   function handleExportMovements() {
     if (!movements) return;
+    const itemById = new Map(items?.map((i) => [i._id, i]) ?? []);
     const csv = exportMovementsToCsv(
       movements.map((m) => ({
         ...m,
-        itemName: items?.find((i) => i._id === m.item_id)?.name,
+        itemName: itemById.get(m.item_id)?.name,
       })),
     );
     downloadCsv(csv, `movements-${new Date().toISOString().split("T")[0]}.csv`);
@@ -48,26 +50,32 @@ export default function ReportsPage() {
     const reader = new FileReader();
     reader.onload = (ev) => {
       const csv = ev.target?.result as string;
-      const rows = parseItemsCsv(csv);
-      setImportPreview(rows as unknown as Array<Record<string, string>>);
+      setImportPreview(parseItemsCsv(csv));
     };
     reader.readAsText(file);
   }
 
+const VALID_ITEM_TYPES = ["trading", "raw_material", "finished_good", "packaging", "consumable"] as const;
+type ValidItemType = typeof VALID_ITEM_TYPES[number];
+
   async function handleImport() {
     if (importPreview.length === 0) return;
+    const capped = importPreview.slice(0, 500);
     setImporting(true);
+    const catByName = new Map(categories?.map((c) => [c.name.toLowerCase(), c]) ?? []);
     let success = 0;
-    let failed = 0;
-    for (const row of importPreview) {
+    const errors: string[] = [];
+    for (const row of capped) {
       try {
-        const cat = categories?.find(
-          (c) => c.name.toLowerCase() === (row.category ?? "").toLowerCase()
-        );
+        const rawType = (row.item_type ?? "").toLowerCase();
+        const itemType: ValidItemType = (VALID_ITEM_TYPES as readonly string[]).includes(rawType)
+          ? (rawType as ValidItemType)
+          : "trading";
+        const cat = catByName.get((row.category ?? "").toLowerCase());
         await createItem({
           name: row.name ?? "",
           unit: row.unit ?? "pcs",
-          item_type: (row.item_type as "trading") ?? "trading",
+          item_type: itemType,
           category_id: cat?._id,
           cost_price: row.cost_price ? Number(row.cost_price) : undefined,
           selling_price: row.selling_price ? Number(row.selling_price) : undefined,
@@ -82,11 +90,16 @@ export default function ReportsPage() {
           opening_qty: row.qty_on_hand ? Number(row.qty_on_hand) : 0,
         });
         success++;
-      } catch {
-        failed++;
+      } catch (err) {
+        errors.push(err instanceof Error ? err.message : `Row "${row.name}" failed`);
       }
     }
-    toast.success(`Imported ${success} items${failed > 0 ? `, ${failed} failed` : ""}`);
+    if (errors.length > 0) {
+      toast.error(`${errors.length} rows failed: ${errors.slice(0, 2).join("; ")}${errors.length > 2 ? "…" : ""}`);
+    }
+    if (success > 0) {
+      toast.success(`Imported ${success} item${success > 1 ? "s" : ""}`);
+    }
     setImportPreview([]);
     if (fileRef.current) fileRef.current.value = "";
     setImporting(false);

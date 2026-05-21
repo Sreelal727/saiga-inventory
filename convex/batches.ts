@@ -1,5 +1,13 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { MS_PER_DAY } from "./constants";
+
+const batchStatus = v.union(
+  v.literal("active"),
+  v.literal("depleted"),
+  v.literal("expired"),
+  v.literal("written_off"),
+);
 
 export const listByItem = query({
   args: { item_id: v.id("inventory_items") },
@@ -8,32 +16,33 @@ export const listByItem = query({
       .query("stock_batches")
       .withIndex("by_item", (q) => q.eq("item_id", item_id))
       .order("desc")
-      .collect(),
+      .take(200),
 });
 
 export const listExpiring = query({
   args: { days: v.optional(v.number()) },
   handler: async (ctx, { days = 30 }) => {
-    const cutoff = new Date(Date.now() + days * 86400000)
+    const todayStr = new Date().toISOString().split("T")[0];
+    const cutoff = new Date(Date.now() + days * MS_PER_DAY)
       .toISOString()
       .split("T")[0];
-    const batches = await ctx.db
+    return ctx.db
       .query("stock_batches")
-      .withIndex("by_expiry")
+      .withIndex("by_expiry", (q) =>
+        q.gte("expiry_date", todayStr).lte("expiry_date", cutoff),
+      )
+      .filter((q) => q.eq(q.field("status"), "active"))
       .collect();
-    return batches.filter(
-      (b) =>
-        b.status === "active" &&
-        b.expiry_date !== undefined &&
-        b.expiry_date <= cutoff,
-    );
   },
 });
 
 export const listAll = query({
-  args: { status: v.optional(v.string()) },
+  args: { status: v.optional(batchStatus) },
   handler: async (ctx, { status }) => {
-    const batches = await ctx.db.query("stock_batches").order("desc").collect();
+    const batches = await ctx.db
+      .query("stock_batches")
+      .order("desc")
+      .take(500);
     return status ? batches.filter((b) => b.status === status) : batches;
   },
 });
@@ -49,6 +58,7 @@ export const create = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    if (args.qty_received <= 0) throw new Error("qty_received must be positive");
     const item = await ctx.db.get(args.item_id);
     if (!item) throw new Error("Item not found");
 
@@ -94,10 +104,14 @@ export const bulkCreate = mutation({
     ),
   },
   handler: async (ctx, { entries }) => {
+    if (entries.length > 500) throw new Error("Maximum 500 entries per bulk import");
     const results: string[] = [];
     for (const entry of entries) {
+      if (entry.qty_received <= 0) {
+        throw new Error(`qty_received must be positive for batch ${entry.batch_no}`);
+      }
       const item = await ctx.db.get(entry.item_id);
-      if (!item) continue;
+      if (!item) throw new Error(`Item ${entry.item_id} not found`);
 
       const batchId = await ctx.db.insert("stock_batches", {
         ...entry,
@@ -132,14 +146,15 @@ export const markExpired = mutation({
     const today = new Date().toISOString().split("T")[0];
     const batches = await ctx.db
       .query("stock_batches")
-      .withIndex("by_expiry")
+      .withIndex("by_expiry", (q) =>
+        q.gte("expiry_date", "2000-01-01").lt("expiry_date", today),
+      )
+      .filter((q) => q.eq(q.field("status"), "active"))
       .collect();
     let count = 0;
     for (const b of batches) {
-      if (b.status === "active" && b.expiry_date && b.expiry_date < today) {
-        await ctx.db.patch(b._id, { status: "expired" });
-        count++;
-      }
+      await ctx.db.patch(b._id, { status: "expired" });
+      count++;
     }
     return count;
   },

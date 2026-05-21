@@ -58,7 +58,16 @@ export default function CategoriesPage() {
       }
       resetForm();
     } catch (err) {
-      toast.error(String(err));
+      toast.error(err instanceof Error ? err.message : "Something went wrong");
+    }
+  }
+
+  async function handleRemove(id: Id<"inventory_categories">) {
+    try {
+      await removeCat({ id });
+      toast.success("Removed");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to remove category");
     }
   }
 
@@ -161,7 +170,7 @@ export default function CategoriesPage() {
               <button onClick={() => startEdit(root)} className="rounded p-1.5 text-muted-foreground hover:bg-accent">
                 <Edit className="h-3.5 w-3.5" />
               </button>
-              <button onClick={async () => { await removeCat({ id: root._id }); toast.success("Removed"); }}
+              <button onClick={() => handleRemove(root._id)}
                 className="rounded p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
@@ -176,7 +185,7 @@ export default function CategoriesPage() {
                 <button onClick={() => startEdit(child)} className="rounded p-1.5 text-muted-foreground hover:bg-accent">
                   <Edit className="h-3.5 w-3.5" />
                 </button>
-                <button onClick={async () => { await removeCat({ id: child._id }); toast.success("Removed"); }}
+                <button onClick={() => handleRemove(child._id)}
                   className="rounded p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>

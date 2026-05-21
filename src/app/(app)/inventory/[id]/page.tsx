@@ -16,6 +16,7 @@ import { MovementTrendChart } from "@/components/stock/movement-trend-chart";
 
 export default function ItemDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const itemId = id as Id<"inventory_items">;
 
   const item = useQuery(api.items.get, { id: itemId });
@@ -49,7 +50,7 @@ export default function ItemDetailPage() {
     <div className="space-y-6 max-w-6xl">
       {/* Header */}
       <div className="flex items-start gap-4">
-        <button onClick={() => history.back()} className="mt-1 rounded-lg p-2 hover:bg-accent text-muted-foreground">
+        <button onClick={() => router.back()} className="mt-1 rounded-lg p-2 hover:bg-accent text-muted-foreground">
           <ArrowLeft className="h-4 w-4" />
         </button>
         <div className="flex-1">

@@ -74,12 +74,25 @@ export function ItemForm({ editId, defaultValues }: Props) {
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Max file size is 5 MB");
+      return;
+    }
+    if (!file.type.startsWith("image/")) {
+      toast.error("Only image files are allowed");
+      return;
+    }
     const preview = URL.createObjectURL(file);
     setImagePreview(preview);
-    const uploadUrl = await generateUploadUrl({});
-    const res = await fetch(uploadUrl, { method: "POST", body: file, headers: { "Content-Type": file.type } });
-    const { storageId } = await res.json() as { storageId: Id<"_storage"> };
-    setUploadedImageId(storageId);
+    try {
+      const uploadUrl = await generateUploadUrl({});
+      const res = await fetch(uploadUrl, { method: "POST", body: file, headers: { "Content-Type": file.type } });
+      const { storageId } = await res.json() as { storageId: Id<"_storage"> };
+      setUploadedImageId(storageId);
+    } catch {
+      toast.error("Image upload failed");
+      setImagePreview(null);
+    }
   }
 
   async function onSubmit(data: FormData) {

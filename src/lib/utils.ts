@@ -39,3 +39,8 @@ export function daysUntil(dateStr: string | undefined) {
 export function stockAgeingDays(receivedAt: number) {
   return Math.floor((Date.now() - receivedAt) / 86400000);
 }
+
+export function getErrorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  return "Something went wrong";
+}
