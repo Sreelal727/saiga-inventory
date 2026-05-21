@@ -4,4 +4,6 @@ node_modules/
 .env
 dist/
 .convex/
-convex/_generated/
+# convex/_generated/ — intentionally tracked so Vercel can build without re-running codegen
+
+.vercel
