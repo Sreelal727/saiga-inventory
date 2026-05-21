@@ -1,0 +1,6 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "buildCommand": "npx convex codegen --typecheck disable && npx convex deploy --cmd 'pnpm build' --codegen disable --yes",
+  "installCommand": "pnpm install --no-frozen-lockfile"
+}
