@@ -1,4 +1,5 @@
 import { mutation, query } from "./_generated/server";
+import type { MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
 
 const itemType = v.union(
@@ -64,7 +65,7 @@ export const getBySku = query({
       .first(),
 });
 
-async function nextSku(ctx: { db: { query: (t: "counters") => { withIndex: (i: string, q: (q: { eq: (f: string, v: string) => unknown }) => unknown) => { first: () => Promise<{ _id: string; name: string; value: number } | null> }; insert: (t: string, d: object) => Promise<string>; patch: (id: string, d: object) => Promise<void> } } }) {
+async function nextSku(ctx: MutationCtx) {
   const counter = await ctx.db
     .query("counters")
     .withIndex("by_name", (q) => q.eq("name", "sku"))
@@ -100,7 +101,7 @@ export const create = mutation({
     opening_qty: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const sku = await nextSku(ctx as Parameters<typeof nextSku>[0]);
+    const sku = await nextSku(ctx);
     const { opening_qty, ...rest } = args;
     const id = await ctx.db.insert("inventory_items", {
       ...rest,
