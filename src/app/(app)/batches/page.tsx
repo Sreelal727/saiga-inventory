@@ -71,7 +71,7 @@ export default function BatchesPage() {
   );
 
   function itemName(id: string) {
-    return itemById.get(id)?.name ?? id;
+    return itemById.get(id as Id<"inventory_items">)?.name ?? id;
   }
 
   async function handleMarkExpired() {

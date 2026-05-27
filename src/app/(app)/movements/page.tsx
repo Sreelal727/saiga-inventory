@@ -24,7 +24,7 @@ export default function MovementsPage() {
   );
 
   function itemName(id: string) {
-    return itemById.get(id)?.name ?? "—";
+    return itemById.get(id as Id<"inventory_items">)?.name ?? "—";
   }
 
   return (
