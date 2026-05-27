@@ -109,7 +109,7 @@ export default function InventoryPage() {
             )}
             {items?.map((item) => {
               const isLow = item.reorder_level !== undefined && item.qty_on_hand <= item.reorder_level;
-              const cat = catById.get(item.category_id);
+              const cat = item.category_id ? catById.get(item.category_id) : undefined;
               return (
                 <tr key={item._id} className="border-t hover:bg-muted/20 transition-colors">
                   <td className="px-4 py-3">

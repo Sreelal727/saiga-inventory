@@ -24,7 +24,7 @@ export default function ReportsPage() {
     const csv = exportItemsToCsv(
       items.map((i) => ({
         ...i,
-        categoryName: catById.get(i.category_id)?.name,
+        categoryName: i.category_id ? catById.get(i.category_id)?.name : undefined,
       })),
     );
     downloadCsv(csv, `inventory-${new Date().toISOString().split("T")[0]}.csv`);
