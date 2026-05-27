@@ -57,7 +57,7 @@ export default function BatchesPage() {
       });
       toast.success(`${valid.length} batch${valid.length > 1 ? "es" : ""} added`);
       setShowBatchForm(false);
-      setBatchEntries([{ item_id: "", batch_no: "", qty_received: "", unit_cost: "", manufacture_date: "", expiry_date: "", notes: "" }]);
+      setBatchEntries([{ id: crypto.randomUUID(), item_id: "", batch_no: "", qty_received: "", unit_cost: "", manufacture_date: "", expiry_date: "", notes: "" }]);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to add batches");
     } finally {
