@@ -89,7 +89,7 @@ export default function BatchesPage() {
         <select
           className="h-9 rounded-lg border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
+          onChange={(e) => setStatusFilter(e.target.value as BatchStatus | "")}
         >
           <option value="">All statuses</option>
           <option value="active">Active</option>
